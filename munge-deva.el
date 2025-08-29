@@ -7,15 +7,31 @@
 
 ;; (message (format "Load path is: %s" (mapconcat #'identity load-path "\n")))
 
-(require 'indian-ext
-         (expand-file-name "bin/stei/elisp/indian-ext/indian-ext.el"
-                           default-directory))
+(or (require 'indian-ext nil 'no-error)
+    (require 'indian-ext
+             (mapconcat
+	      #'identity
+	      (list
+               ;; will be emacs --scriptload .../munge-deva.el
+	       (expand-file-name
+                (file-name-directory (caddr command-line-args))
+                default-directory)
+	       "indian-ext/indian-ext.el")
+	      "")))
 
 (or
  (require 'munge-deva-libs nil 'no-error)
  (require 'munge-deva-libs
-          (expand-file-name "bin/stei/elisp/munge-deva-libs.el"
-                            default-directory)))
+          (mapconcat
+	   #'identity
+	   (list
+            ;; will be emacs --scriptload .../munge-deva.el
+	    (expand-file-name
+             (file-name-directory (caddr command-line-args))
+             default-directory)
+	    "munge-deva-libs.el")
+	   "")))
+
 ;; (require 'elp)
 
 (when noninteractive
