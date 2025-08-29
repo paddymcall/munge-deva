@@ -1,0 +1,3 @@
+[submodule "indian-ext"]
+	path = indian-ext
+	url = https://github.com/paddymcall/indian-ext.git

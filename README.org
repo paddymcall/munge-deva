@@ -1,0 +1,15 @@
+#+TITLE: Munge Devanāgarī in XML
+#+AUTHOR: Patrick McAllister
+
+Try to fix “ugly” cases in XML documents after converting text from
+IAST to Devanāgarī.  E.g.:
+
+#+BEGIN_SRC elisp
+  (string-equal
+   (munge-deva-fix-deva-breaks
+    "<p>दर्शनात् <anchor xml:id=\"a1\"/>संशयः</p>")
+   "<p>दर्शनात्सं<anchor xml:id=\"a1\"/>शयः</p>")
+#+END_SRC
+
+So, the /°त्/ is merged with /सं/ after the ~anchor~ element.  This
+does move the anchor a bit, but avoids breaking the /akṣara/.
