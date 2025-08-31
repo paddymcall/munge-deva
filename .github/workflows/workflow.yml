@@ -1,0 +1,20 @@
+name: Run tests
+
+# Controls when the action will run.
+on: push
+
+# A workflow run is made up of one or more jobs that can run
+# sequentially or in parallel
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          recursive: true
+      - name: Install emacs
+        run: |
+          sudo apt-get update
+          sudo apt-get --yes --no-install-recommends install emacs-nox
+      - name: Run tests
+        run: make test
