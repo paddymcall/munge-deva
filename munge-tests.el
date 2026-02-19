@@ -20,7 +20,6 @@
        (with-temp-buffer
 	 (insert (car c))
 	 (let ((result ))
-	   
 	   (should
 	    (equal
 	     (buffer-substring-no-properties
@@ -349,7 +348,21 @@
                  ("<tei:quote>निश्चय</tei:quote>ः<tei:pc type=\"half-daṇḍa\">,</tei:pc>"
                   (nil)
                   "<tei:quote>निश्चयः</tei:quote><tei:pc type=\"half-daṇḍa\">,</tei:pc>")
-                 )))
+                 ;; Anusvāra case #2
+                 ("<p><quote type=\"basetext\">अभिधान</quote>ं शब्दः</p>"
+                  (nil)
+                  "<p><quote type=\"basetext\">अभिधानं</quote> शब्दः</p>")
+                 ;; Anusvāra case #3
+                 ("<p><quote type=\"basetext\"><seg>अभिधान</seg></quote>ं शब्दः</p>"
+                  (nil)
+                  ;; TODO: fix for अभिधानं</seg></quote>
+                  "<p><quote type=\"basetext\"><seg>अभिधान</seg>ं</quote> शब्दः</p>")
+                 ;; Anusvāra case #4: maybe TODO (flip anusvāra and
+                 ;; following space around start tag??).  But it’s
+                 ;; badly encoded anyway.
+                 ("<p>अभिधान<quote type=\"basetext\">ं शब्दः</quote></p>"
+                  (nil)
+                  "<p>अभिधानं<quote type=\"basetext\"> शब्दः</quote></p>"))))
     (mapc
      (lambda (c)
        (should

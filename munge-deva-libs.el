@@ -13,6 +13,8 @@
 ;; This package provides functions to correct the spacing between
 ;; words when transforming IAST encoded Sanskrit to Devanāgarī.
 
+
+;;; Code:
 (require 'xmltok)
 (require 'subr-x)
 (or
@@ -320,11 +322,11 @@ string-replacements by range easier.
 
 The structure of each token in the returned list is:
 
-‘((type . ,xmltok-type)
+((type . ,xmltok-type)
  (start . ,xmltok-start)
  (name . ,(or local-name 'ignore:anonym))
  (end . ,(point))
- (ended-in-punct-p . ,(or t nil)))’."
+ (ended-in-punct-p . ,(or t nil)))."
   (let ((punct-and-maybe-space-rx (rx-to-string '(and punct (0+ space) eos)))
 	token-list)
     (save-excursion
@@ -444,7 +446,12 @@ not a list.
 Scans over the xml structure moving things around so that
 devanāgarī doesn’t look weird.
 
-Returns a new buffer containing the fixed text."
+Returns a new buffer containing the fixed text.
+
+By default, the function assumes that visarga and anusvāra should always
+be moved inside the previous tag.  TODO: this can fail in tricky cases.
+E.g., “</a></b>ṃ” => “</a>ṃ</b>”, but probably “ṃ</a></b>” would be
+preferable.) See Anusvāra case #3 in munge-tests.el."
   (interactive
    (list (current-buffer)
 	 munge-deva-stoppers
@@ -460,14 +467,19 @@ Returns a new buffer containing the fixed text."
         ;; don’t munge across these elements
         (stoppers (cond
 		   (stoppers stoppers)
-		   ((or (eq '(nil) stoppers)
+		   ((or (equal '(nil) stoppers)
 			(not (listp stoppers)))
 		    '())
 		   (munge-deva-stoppers munge-deva-stoppers)
 		   (t '("p" "l" "lg" "pc" "quote"))))
-        (lonely-visarga-rx (rx-to-string `(and
-                                           (group-n 1 "<" (1+ (not ">")) ">")
-                                           ,(char-to-string 2307)))))
+        (lonely-chars-rx (rx-to-string `(and
+                                         (group-n 1 "<" (1+ (not ">")) ">")
+                                         (group-n 2
+                                           (or
+                                            ;; Visarga
+                                            ,(char-to-string 2307)
+                                            ;; Anusvāra
+                                            ,(char-to-string 2306)))))))
     (with-current-buffer mod-buff
       (when interactive?
 	(pop-to-buffer (current-buffer)))
@@ -507,11 +519,12 @@ Returns a new buffer containing the fixed text."
 		 (t t)))))))
       (goto-char (point-min))
       ;; Change <[/]tag>+visarga to  visarga<[/]tag>, assuming you can always do that.
-      (while (re-search-forward lonely-visarga-rx nil 'noerr)
-        (let ((tag-stuff (match-string 1)))
+      (while (re-search-forward lonely-chars-rx nil 'noerr)
+        (let ((tag-stuff (match-string 1))
+              (letter (match-string 2)))
           (goto-char (match-beginning 0))
           (delete-region (point) (match-end 0))
-          (insert (seq-concatenate 'string (char-to-string 2307) tag-stuff))))
+          (insert (seq-concatenate 'string letter tag-stuff))))
       (munge-deva-fix-deva-splits-and-spacing mod-buff))
     ;; return buffer with fixed string
     mod-buff))
