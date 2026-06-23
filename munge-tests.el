@@ -83,7 +83,12 @@
                  ("<p>शब्दो <quote>ऽपि</quote></p>" .
                   "<p>शब्दो<quote>ऽपि</quote></p>")
                  ("<p>शब्दो <quote>   ऽपि</quote></p>" .
-                  "<p>शब्दो<quote>ऽपि</quote></p>"))))
+                  "<p>शब्दो<quote>ऽपि</quote></p>")
+		 ("<p>x <pc/> शब्दो <anchor xml:id=\"abc\"> ऽपि</p>" .
+                  "<p>x <pc/> शब्दो<anchor xml:id=\"abc\">ऽपि</p>")
+		 ("भवति<tei:pc type=\"daṇḍa\">|</tei:pc> अतो <tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H552BIC6F8B6EHQCSU7\" />ऽयम् अप्रसङ्ग<tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H5L1G3VL9EHQASPMXSF\" /> इति"
+		  . "भवति<tei:pc type=\"daṇḍa\">|</tei:pc> अतो<tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H552BIC6F8B6EHQCSU7\" />ऽयमप्रसङ्ग<tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H5L1G3VL9EHQASPMXSF\" /> इति")
+		 )))
     (mapc
      (lambda (c)
        (should

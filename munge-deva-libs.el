@@ -332,26 +332,28 @@ The structure of each token in the returned list is:
     (save-excursion
       (save-match-data
 	(xmltok-save
-	 (while (xmltok-forward)
-	   (push `((type . ,xmltok-type)
-		   (start . ,xmltok-start)
-		   (name . ,(cond
-			     ((member xmltok-type '(empty-element start-tag))
-			      (xmltok-start-tag-local-name))
-			     ((member xmltok-type '(end-tag))
-			      (xmltok-end-tag-local-name))
-			     (t 'ignore:anonym)))
-		   (end . ,(point))
-		   (ended-in-punct-p
-		    .
-		    ,(if (and (eq xmltok-type 'data)
-			      (string-match-p punct-and-maybe-space-rx
-					      (buffer-substring-no-properties
-					       xmltok-start (point))))
-			 t
+	  (while (xmltok-forward)
+	    (push `((type . ,xmltok-type)
+		    (start . ,xmltok-start)
+		    (name . ,(cond
+			      ((member xmltok-type '(empty-element start-tag))
+			       (xmltok-start-tag-local-name))
+			      ((member xmltok-type '(end-tag))
+			       (xmltok-end-tag-local-name))
+			      (t 'ignore:anonym)))
+		    (end . ,(point))
+		    (ended-in-punct-p
+		     .
+		     ,(cond
+		       ((and (eq xmltok-type 'data)
+			     (string-match-p punct-and-maybe-space-rx
+					     (buffer-substring-no-properties
+					      xmltok-start (point))))
+			t)
+		       ((eq xmltok-type 'data) nil)
 		       ;; or inherit value from last token
-		       (cdr (assoc 'ended-in-punct-p (car token-list))))))
-		 token-list)))))
+		       (t (cdr (assoc 'ended-in-punct-p (car token-list)))))))
+		  token-list)))))
     ;; returns token-list in reverse sequence of occurrence
     token-list))
 
