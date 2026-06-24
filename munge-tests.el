@@ -88,7 +88,9 @@
                   "<p>x <pc/> शब्दो<anchor xml:id=\"abc\">ऽपि</p>")
 		 ("भवति<tei:pc type=\"daṇḍa\">|</tei:pc> अतो <tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H552BIC6F8B6EHQCSU7\" />ऽयम् अप्रसङ्ग<tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H5L1G3VL9EHQASPMXSF\" /> इति"
 		  . "भवति<tei:pc type=\"daṇḍa\">|</tei:pc> अतो<tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H552BIC6F8B6EHQCSU7\" />ऽयमप्रसङ्ग<tei:anchor xml:id=\"psṭ-apoha__36r2GYC8H5L1G3VL9EHQASPMXSF\" /> इति")
-		 )))
+                 ("<p>प्रथमपुरुषो<anchor xml:id=\"abc\"/> ऽप्रयुज्यमानो ऽस्तीति गम्यते</p>"
+                  .
+                  "<p>प्रथमपुरुषो<anchor xml:id=\"abc\"/>ऽप्रयुज्यमानोऽस्तीति गम्यते</p>"))))
     (mapc
      (lambda (c)
        (should
@@ -104,6 +106,37 @@
 
 
 ;; (ert "test-avagraha-cases-xml")
+
+(ert-deftest test-avagraha-xml-multiple-cases ()
+  (let ((cases '(("<div>
+  <p>शब्दो ऽपि</p>
+  <p>प्रथमपुरुषो ऽप्रयुज्यमानो ऽस्तीति गम्यते</p>
+  <p>प्रथमपुरुषो<anchor xml:id=\"a\"/> ऽप्रयुज्यमानो ऽस्तीति गम्यते</p>
+  <p>प्रथमपुरुषो <anchor xml:id=\"b\"/>ऽप्रयुज्यमानो ऽस्तीति गम्यते</p>
+  <p>प्रथमपुरुषो <anchor xml:id=\"c\"/> ऽप्रयुज्यमानो ऽस्तीति गम्यते</p>
+</div>"
+                  .
+                  "<div>
+  <p>शब्दोऽपि</p>
+  <p>प्रथमपुरुषोऽप्रयुज्यमानोऽस्तीति गम्यते</p>
+  <p>प्रथमपुरुषो<anchor xml:id=\"a\"/>ऽप्रयुज्यमानोऽस्तीति गम्यते</p>
+  <p>प्रथमपुरुषो<anchor xml:id=\"b\"/>ऽप्रयुज्यमानोऽस्तीति गम्यते</p>
+  <p>प्रथमपुरुषो<anchor xml:id=\"c\"/>ऽप्रयुज्यमानोऽस्तीति गम्यते</p>
+</div>"))))
+    (mapc
+     (lambda (c)
+       (should
+        (equal
+         (with-temp-buffer
+           (insert (car c))
+           (goto-char (point-min))
+           (let ((src-buff (current-buffer)))
+             (with-current-buffer (munge-deva-fix-deva-breaks src-buff)
+               (buffer-string))))
+         (cdr c))))
+     cases)))
+
+;; (ert "test-avagraha-xml-multiple-cases")
 
 
 (ert-deftest test-punctuation-cases-xml ()

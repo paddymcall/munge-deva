@@ -329,100 +329,85 @@ The structure of each token in the returned list is:
  (ended-in-punct-p . ,(or t nil)))."
   (let ((punct-and-maybe-space-rx (rx-to-string '(and punct (0+ space) eos)))
 	token-list)
-    (save-excursion
-      (save-match-data
-	(xmltok-save
-	  (while (xmltok-forward)
-	    (push `((type . ,xmltok-type)
-		    (start . ,xmltok-start)
-		    (name . ,(cond
-			      ((member xmltok-type '(empty-element start-tag))
-			       (xmltok-start-tag-local-name))
-			      ((member xmltok-type '(end-tag))
-			       (xmltok-end-tag-local-name))
-			      (t 'ignore:anonym)))
-		    (end . ,(point))
-		    (ended-in-punct-p
-		     .
-		     ,(cond
-		       ((and (eq xmltok-type 'data)
-			     (string-match-p punct-and-maybe-space-rx
-					     (buffer-substring-no-properties
-					      xmltok-start (point))))
-			t)
-		       ((eq xmltok-type 'data) nil)
-		       ;; or inherit value from last token
-		       (t (cdr (assoc 'ended-in-punct-p (car token-list)))))))
-		  token-list)))))
+    (with-current-buffer xml-buffer
+      (save-excursion
+        (save-match-data
+	  (xmltok-save
+            (goto-char (point-min))
+	    (while (xmltok-forward)
+	      (push `((type . ,xmltok-type)
+		      (start . ,xmltok-start)
+		      (name . ,(cond
+			        ((member xmltok-type '(empty-element start-tag))
+			         (xmltok-start-tag-local-name))
+			        ((member xmltok-type '(end-tag))
+			         (xmltok-end-tag-local-name))
+			        (t 'ignore:anonym)))
+		      (end . ,(point))
+		      (ended-in-punct-p
+		       .
+		       ,(cond
+		         ((and (eq xmltok-type 'data)
+			       (string-match-p punct-and-maybe-space-rx
+					       (buffer-substring-no-properties
+					        xmltok-start (point))))
+			  t)
+		         ((eq xmltok-type 'data) nil)
+		         ;; or inherit value from last token
+		         (t (cdr (assoc 'ended-in-punct-p (car token-list)))))))
+		    token-list))))))
     ;; returns token-list in reverse sequence of occurrence
     token-list))
 
-(defun munge-deva-fix-deva-splits-and-spacing (xml-buffer)
-  "Fix spacing for avagrahas in XML-BUFFER.
+(defun munge-deva-find-avagraha-cleanups (xml-buffer)
+  "Scan buffer XML-BUFFER for cleanups to perform.
 
-See ‘munge-tests.el’ for some examples."
-  (save-excursion
-    (save-match-data
-      (xmltok-save
-        (goto-char (point-min))
-        (let ((token-list (munge-deva-analyze-xml-for-avagraha xml-buffer))
-              (avagraha-at-start-rx (rx-to-string `(and bos (0+ space) 2365)))
-	      to-clean)
-	  ;; analyze xmldoc and save things to fix to to-clean
-          (while token-list
-	    (let ((current-token (pop token-list)))
-              (cond
-               ((eq (cdr (assoc 'type current-token)) 'data)
-		;; does this *START* with an avagraha: then we have to
-		;; go backward through the token-list
-		(let ((current-data (buffer-substring-no-properties
-                                     (cdr (assoc 'start current-token))
-                                     (cdr (assoc 'end current-token)))))
-                  (cond
-                   ((string-match-p avagraha-at-start-rx current-data)
-                    ;;  Fix depending on tokens before: since the
-                    ;;  ended-in-punct-p property is inherited, it’s
-                    ;;  okay to just look at the last value.
-		    (unless (cdr (assoc 'ended-in-punct-p (car token-list)))
-                      ;; Go through the token-list up to the last preceding data token,
-		      (push (list 'delete-preceding-space current-token) to-clean)
-		      (cl-loop for token in token-list
-			       until (eq (cdr (assoc 'type token)) 'data)
-			       ;; and for each token on the way: 
-			       do (cond
-				   ((eq (assoc 'type token) 'space)
-				    (push (list 'kill-space token) to-clean))
-;;; this part can never be reached, I think 
-				   ;; ((eq (assoc 'type token) 'data)
-				   ;;  (push (list 'delete-trailing-space token) to-clean))
-				   (t t))
-			       finally (push (list 'delete-trailing-space token) to-clean))))
-		   ;; contains an avagraha --> fix internal spaces 
-                   ((string-match-p (char-to-string 2365) current-data)
-                    (push (list 'fix-internal current-token) to-clean))
-                   (t t))))
-               (t t))))
-	  ;; do the actual cleanup
-	  (atomic-change-group
-	    (mapc
-	     (lambda (item)
-	       (let ((what-todo (car item))
-		     (from (cdr (assoc 'start (cadr item))) )
-		     (to (cdr (assoc 'end (cadr item)))))
-		 (save-excursion
-		   (goto-char from)
-		   (cond
-		    ((eq what-todo 'fix-internal)
-		     (insert (munge-deva-clean-up-for-avagraha (delete-and-extract-region from to))))
-		    ((eq what-todo 'kill-space)
-		     (delete-and-extract-region from to))
-		    ((eq what-todo 'delete-trailing-space)
-		     (insert (string-trim-right (delete-and-extract-region from to))))
-		    ((eq what-todo 'delete-preceding-space)
-		     (insert (string-trim-left (delete-and-extract-region from to))))
-		    (t t)))))
-	     ;; Do backwards, from the end of the buffer:
-	     (nreverse to-clean))))))))
+Returns the list of cleanup operations that should be performed."
+  (with-current-buffer xml-buffer
+    (save-excursion
+      (save-match-data
+        (xmltok-save
+          (goto-char (point-min))
+          (let ((token-list (munge-deva-analyze-xml-for-avagraha xml-buffer))
+                (avagraha-at-start-rx (rx-to-string `(and bos (0+ space) 2365)))
+	        to-clean)
+            ;; Analyze xmldoc and save things to fix to to-clean
+            (while token-list
+              (let ((current-token (pop token-list)))
+                (cond
+                 ((eq (cdr (assoc 'type current-token)) 'data)
+	          ;; does this *START* with an avagraha: then we have to
+	          ;; go backward through the token-list
+	          (let ((current-data (buffer-substring-no-properties
+                                       (cdr (assoc 'start current-token))
+                                       (cdr (assoc 'end current-token)))))
+                    (cond
+                     ((string-match-p avagraha-at-start-rx current-data)
+                      ;;  Fix depending on tokens before: since the
+                      ;;  ended-in-punct-p property is inherited, it’s
+                      ;;  okay to just look at the last value.
+	              (unless (cdr (assoc 'ended-in-punct-p (car token-list)))
+                        ;; Go through the token-list up to the last preceding data token,
+		        (push (list 'delete-preceding-space current-token) to-clean)
+		        (cl-loop for token in token-list
+			         until (eq (cdr (assoc 'type token)) 'data)
+			         ;; and for each token on the way:
+			         do (cond
+			             ((eq (assoc 'type token) 'space)
+			              (push (list 'kill-space token) to-clean))
+                                     ;; this part can never be reached, I think
+			             ;; ((eq (assoc 'type token) 'data)
+			             ;;  (push (list 'delete-trailing-space token) to-clean))
+			             (t t))
+			         finally (push (list 'delete-trailing-space token) to-clean))))
+	             ;; contains an avagraha --> fix internal spaces
+                     ((string-match-p (char-to-string 2365) current-data)
+                      (push (list 'fix-internal current-token) to-clean))
+                     (t t))))
+                 (t t))))
+            to-clean))))))
+
+;; (munge-deva-find-avagraha-cleanups (get-buffer "soup.xml"))
 
 
 ;; (let ((token-list '(a b c d e f g))
@@ -431,6 +416,55 @@ See ‘munge-tests.el’ for some examples."
 ;; 	   until (eq (car results) 'e)
 ;; 	   do (push token results))
 ;;   (nreverse results))
+
+(defun munge-deva-apply-avagraha-cleanups (xml-buffer cleanups)
+  "Perform CLEANUPS in buffer XML-BUFFER.
+
+CLEANUPS should be a list as returned by ‘munge-deva-find-cleanups’."
+  (with-current-buffer xml-buffer
+    (pop-to-buffer (current-buffer))
+    (save-excursion
+      (save-match-data
+        (xmltok-save
+          (atomic-change-group
+            (mapc
+             (lambda (item)
+               (let ((what-todo (car item))
+	             (from (cdr (assoc 'start (cadr item))))
+	             (to (cdr (assoc 'end (cadr item)))))
+	         (goto-char from)
+	         (cond
+	          ((eq what-todo 'fix-internal)
+	           (insert
+                    (munge-deva-clean-up-for-avagraha
+                     (delete-and-extract-region from to))))
+	          ((eq what-todo 'kill-space)
+	           (delete-and-extract-region from to))
+	          ((eq what-todo 'delete-trailing-space)
+	           (insert
+                    (munge-deva-clean-up-for-avagraha
+                     (string-trim-right
+                      (delete-and-extract-region from to)))))
+	          ((eq what-todo 'delete-preceding-space)
+	           (insert
+                    (munge-deva-clean-up-for-avagraha
+                     (string-trim-left
+                      (delete-and-extract-region from to)))))
+	          (t t))))
+             ;; Do backwards, from the end of the buffer:
+             (nreverse cleanups))))))))
+
+(defun munge-deva-fix-deva-splits-and-spacing (xml-buffer)
+  "Fix spacing for avagrahas in XML-BUFFER.
+
+See ‘munge-tests.el’ for some examples."
+  (with-current-buffer xml-buffer
+    (munge-deva-apply-avagraha-cleanups
+     (current-buffer)
+     (munge-deva-find-avagraha-cleanups (current-buffer)))))
+
+;; (munge-deva-fix-deva-splits-and-spacing (get-buffer "soup.xml"))
+
 
 
 (defun munge-deva-fix-deva-breaks (&optional xml-buffer stoppers interactive?)
@@ -460,9 +494,8 @@ preferable.) See Anusvāra case #3 in munge-tests.el."
 	 'interactive))
   (let ((mod-buff (with-current-buffer (get-buffer-create "*fix deva breaks*")
                     (erase-buffer)
-                    (when interactive?
-                      (pop-to-buffer (current-buffer)))
                     (insert-buffer-substring-no-properties (or xml-buffer (current-buffer)))
+                    (goto-char (point-min))
                     (current-buffer)))
         (end-to-complement-rx (rx-to-string `(and ,(char-to-string 2381)
                                                   word-boundary)))
@@ -482,9 +515,9 @@ preferable.) See Anusvāra case #3 in munge-tests.el."
                                             ,(char-to-string 2307)
                                             ;; Anusvāra
                                             ,(char-to-string 2306)))))))
+    (when interactive?
+      (pop-to-buffer (current-buffer)))
     (with-current-buffer mod-buff
-      (when interactive?
-	(pop-to-buffer (current-buffer)))
       (goto-char (point-min))
       (while (re-search-forward end-to-complement-rx nil 'noerror)
         (save-match-data
